@@ -138,3 +138,6 @@ class Blockchain{
     });
   }
 }
+
+exports.Blockchain = Blockchain;
+exports.Block = Block;
