@@ -109,7 +109,6 @@ class Blockchain{
   // Validate blockchain
   validateChain(){
     let errorLog = [];
-    let prevBlock = new Block('Temporary');
     this.getBlockHeight((chainHeight) => {
       for(let i = 0; i < chainHeight; i++){
         this.getBlock(i, (block) => {
@@ -120,13 +119,14 @@ class Blockchain{
             }
           });
           if (block.height > 0) {
-            const { previousBlockHash } = block;
-            const { hash } = prevBlock;
-            if ( previousBlockHash !== hash) {
-              errorLog.push(prevBlock.height);
-            }
+            this.getBlock(i - 1, (prevBlock) => {
+              const { previousBlockHash } = block;
+              const { hash } = prevBlock;
+              if ( previousBlockHash !== hash) {
+                errorLog.push(prevBlock.height);
+              }
+            });
           }
-          prevBlock = block;
           if (i === chainHeight - 1 && errorLog.length>0) {
             console.log(`Block errors = ${errorLog.length}`);
             console.log(`Blocks: ${errorLog}`);
