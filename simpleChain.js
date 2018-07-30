@@ -27,115 +27,109 @@ class Block{
 
 class Blockchain{
   constructor(){
-    db.get(0, (error) => {
-      if (error && error.type === 'NotFoundError') {
+    this.initBlockchain();
+  }
+
+  async initBlockchain(){
+    try {
+      await db.get(0);
+    } catch (error) {
+      if (error.notFound) {
         this.addBlock(new Block("First block in the chain - Genesis block"));
-      } else if (error) {
+      } else {
         console.log('Error getting data from DB', error);
       }
-    });
+    }
   }
 
   // Add new block
-  addBlock(newBlock){
-    this.getBlockHeight((chainHeight) => {
-      if (chainHeight > 0) {
-        this.getBlock(chainHeight - 1, (prevBlock) => {
-          newBlock.previousBlockHash = prevBlock.hash;
-          newBlock.height = chainHeight;
-          newBlock.time = new Date().getTime().toString().slice(0,-3);
-          newBlock.hash = SHA256(JSON.stringify(newBlock)).toString();
-          const block = JSON.stringify(newBlock);
-          db.put(newBlock.height, block, (error, value) => {
-            if (error) {
-              console.log(`Block ${newBlock.height} submission failed.`, error);
-            } else {
-              console.log(`Block ${newBlock.height} added successfully.`);
-            }
-          });
-        });
-      } else {
-        newBlock.height = chainHeight;
-        newBlock.time = new Date().getTime().toString().slice(0,-3);
-        newBlock.hash = SHA256(JSON.stringify(newBlock)).toString();
-        const block = JSON.stringify(newBlock);
-        db.put(newBlock.height, block, (error, value) => {
-          if (error) {
-            console.log(`Block ${newBlock.height} submission failed.`, error);
-          } else {
-            console.log(`Block ${newBlock.height} added successfully.`);
-          }
-        });
-      }
-    });
+  async addBlock(newBlock){
+    let chainHeight = 0;
+    await this.getBlockHeight().then(value => chainHeight = value);
+    if (chainHeight >= 0) {
+      const prevBlock = await this.getBlock(chainHeight);
+      newBlock.previousBlockHash = prevBlock.hash;
+    }
+    newBlock.height = chainHeight + 1;
+    newBlock.time = new Date().getTime().toString().slice(0,-3);
+    newBlock.hash = SHA256(JSON.stringify(newBlock)).toString();
+    const block = JSON.stringify(newBlock);
+    try {
+      await db.put(newBlock.height, block);
+      console.log(`Block ${newBlock.height} added successfully.`);
+    } catch (error) {
+      console.log(`Block ${newBlock.height} submission failed.`, error);
+    }
   }
 
   // Get block height
-  getBlockHeight(callback){
-    let chainHeight = 0;
-    db.createReadStream().on('data', (data) => {
-      chainHeight++;
-    }).on('error', (error) => {
-      console.log('Unable to read data stream!', error)
-    }).on('close', () => {
-      callback(chainHeight);
+  async getBlockHeight(){
+    return new Promise((resolve, reject) => {
+      let chainHeight = 0;
+      db.createReadStream().on('data', (data) => {
+        chainHeight++;
+      }).on('error', (error) => {
+        console.log('Unable to read data stream!', error)
+        reject();
+      }).on('close', () => {
+        resolve(chainHeight - 1);
+      });
     });
   }
 
   // get block
-  getBlock(blockHeight, callback){
-    db.get(blockHeight, (error, value) => {
-      if (error) {
-        console.log('Error getting data from DB', error);
-      } else {
-        callback(JSON.parse(value));
-      }
-    });
+  async getBlock(blockHeight){
+    try {
+      const data = await db.get(blockHeight);
+      return JSON.parse(data);
+    } catch (error) {
+      console.log('Error getting data from DB', error);
+      return null;
+    }
   }
 
   // validate block
-  validateBlock(block, callback){
+  validateBlock(block){
     const testBlock = { ...block, hash: '' };
-    let blockHash = block.hash;
-    let validBlockHash = SHA256(JSON.stringify(testBlock)).toString();
+    const blockHash = block.hash;
+    const validBlockHash = SHA256(JSON.stringify(testBlock)).toString();
     if (blockHash===validBlockHash) {
-      callback(true);
+      return true;
     } else {
       console.log(`Block #${block.height} invalid hash:\n${blockHash}<>${validBlockHash}`);
-      callback(false);
+      return false;
     }
   }
 
   // Validate blockchain
-  validateChain(){
+  async validateChain(){
     let errorLog = [];
-    this.getBlockHeight((chainHeight) => {
-      for(let i = 0; i < chainHeight; i++){
-        this.getBlock(i, (block) => {
-          console.log('Validating Block: ', block.height);
-          this.validateBlock(block, (isValid) => {
-            if (!isValid) {
-              errorLog.push(block.height);
-            }
-          });
-          if (block.height > 0) {
-            this.getBlock(i - 1, (prevBlock) => {
-              const { previousBlockHash } = block;
-              const { hash } = prevBlock;
-              if ( previousBlockHash !== hash) {
-                errorLog.push(prevBlock.height);
-              }
-            });
-          }
-          if (i === chainHeight - 1 && errorLog.length>0) {
-            console.log(`Block errors = ${errorLog.length}`);
-            console.log(`Blocks: ${errorLog}`);
-          } else if (i === chainHeight - 1) {
-            console.log('No errors detected');
-          }
-        });
+    let chainHeight = 0;
+    await this.getBlockHeight().then(value => chainHeight = value);
+
+    for(let i = 0; i <= chainHeight; i++){
+      const block = await this.getBlock(i);
+      console.log('Validating Block: ', block.height);
+      const isValid = this.validateBlock(block);
+
+      if (!isValid) {
+        errorLog.push(block.height);
+      } else if (block.height > 0) {
+        const prevBlock = await this.getBlock(i - 1);
+        const { previousBlockHash } = block;
+        const { hash } = prevBlock;
+        if ( previousBlockHash !== hash) {
+          errorLog.push(prevBlock.height);
+        }
       }
-    });
+
+      if (i === chainHeight && errorLog.length>0) {
+        console.log(`Block errors = ${errorLog.length}`);
+        console.log(`Blocks: ${errorLog}`);
+      } else if (i === chainHeight) {
+        console.log('No errors detected');
+      }
+    }
   }
 }
 
