@@ -8,13 +8,14 @@ const blockchain = new Blockchain();
 
 app.use(bodyParser.json());
 
-app.get('/block/:blockHeight', (req, res) => {
-  blockchain.getBlock(req.params.blockHeight, block => res.json(block))
+app.get('/block/:blockHeight', async (req, res) => {
+  const block = await blockchain.getBlock(req.params.blockHeight);
+  res.json(block);
 })
 
-app.post('/block', (req, res) => {
-  blockchain.addBlock(new Block(req.body.blockData));
-  blockchain.getBlockHeight(value => blockchain.getBlock(value - 1, block => res.json(block)));
+app.post('/block', async (req, res) => {
+  const block = await blockchain.addBlock(new Block(req.body.blockData));
+  res.json(block);
 })
 
 app.listen(port, () => console.log(`Blockchain service running on port: ${port}`));
