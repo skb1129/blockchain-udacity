@@ -60,6 +60,7 @@ class Blockchain{
     } catch (error) {
       console.log(`Block ${newBlock.height} submission failed.`, error);
     }
+    return newBlock;
   }
 
   // Get block height
