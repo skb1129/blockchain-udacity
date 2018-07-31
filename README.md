@@ -54,6 +54,8 @@ blockchain.validateChain();
 
 ## Web Service
 
+#### Built using [ExpressJS](https://expressjs.com/)
+
 To run the service:
 1. Open a command prompt or shell terminal and run the following command:
 
