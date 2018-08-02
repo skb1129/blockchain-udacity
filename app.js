@@ -9,16 +9,6 @@ const blockchain = new Blockchain();
 
 app.use(bodyParser.json());
 
-app.post('/requestValidation', (req, res) => {
-  const { address } = req.params;
-  res.json(blockchain.addressValidationRequest(address));
-});
-
-app.post('/message-signature/validate', (req, res) => {
-  const { address, signature } = req.params;
-  res.json(blockchain.validateSignature(address, signature));
-});
-
 app.get('/block/:blockHeight', async (req, res) => {
   const block = await blockchain.getBlock(req.params.blockHeight);
   res.json(block);
@@ -27,6 +17,18 @@ app.get('/block/:blockHeight', async (req, res) => {
 app.post('/block', async (req, res) => {
   const block = await blockchain.addBlock(new Block(req.body.blockData));
   res.json(block);
+});
+
+app.post('/requestValidation', async (req, res) => {
+  const { address } = req.body;
+  const response = await blockchain.addressValidationRequest(address);
+  res.json(response);
+});
+
+app.post('/message-signature/validate', async (req, res) => {
+  const { address, signature } = req.body;
+  const response = await blockchain.validateSignature(address, signature);
+  res.json(response);
 });
 
 app.listen(port, () => console.log(`Blockchain service running on port: ${port}`));
