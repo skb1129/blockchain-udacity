@@ -11,14 +11,12 @@ app.use(bodyParser.json());
 
 app.post('/requestValidation', (req, res) => {
   const { address } = req.params;
-  const requestTimeStamp = Date.now().toString().slice(0, -3);
-  const response = {
-    address,
-    requestTimeStamp,
-    message: `${address}:${requestTimeStamp}:starRegistry`,
-    validationWindow: 300,
-  };
-  res.json(response);
+  res.json(blockchain.addressValidationRequest(address));
+});
+
+app.post('/message-signature/validate', (req, res) => {
+  const { address, signature } = req.params;
+  res.json(blockchain.validateSignature(address, signature));
 });
 
 app.get('/block/:blockHeight', async (req, res) => {
