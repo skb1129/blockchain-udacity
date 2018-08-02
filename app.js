@@ -1,6 +1,11 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const { Blockchain, Block } = require('./simpleChain');
+const {
+  addressValidationRequest,
+  validateSignature,
+  checkRegisterStar,
+} = require('./addressValidator');
 
 const app = express();
 const port = 8000;
@@ -15,19 +20,27 @@ app.get('/block/:blockHeight', async (req, res) => {
 });
 
 app.post('/block', async (req, res) => {
-  const block = await blockchain.addBlock(new Block(req.body.blockData));
+  const { address, star } = req.body;
+  if (!checkRegisterStar(address)) {
+    res.json({
+      error: 'This address is not validated',
+      address,
+    });
+  }
+  const data = { address, star };
+  const block = await blockchain.addBlock(new Block(data));
   res.json(block);
 });
 
 app.post('/requestValidation', async (req, res) => {
   const { address } = req.body;
-  const response = await blockchain.addressValidationRequest(address);
+  const response = await addressValidationRequest(address);
   res.json(response);
 });
 
 app.post('/message-signature/validate', async (req, res) => {
   const { address, signature } = req.body;
-  const response = await blockchain.validateSignature(address, signature);
+  const response = await validateSignature(address, signature);
   res.json(response);
 });
 

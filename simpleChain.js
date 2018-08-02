@@ -4,9 +4,8 @@
  */
 const SHA256 = require('crypto-js/sha256');
 const level = require('level');
-const bitcoinMessage = require('bitcoinjs-message');
 
-const chainDB = './chaindata';
+const chainDB = './chainData';
 const db = level(chainDB);
 
 /**
@@ -136,48 +135,6 @@ class Blockchain {
         console.log('No errors detected');
       }
     }
-  }
-
-  async addressValidationRequest(address) {
-    const requestTimeStamp = Date.now().toString().slice(0, -3);
-    const response = {
-      address,
-      requestTimeStamp,
-      message: `${address}:${requestTimeStamp}:starRegistry`,
-      validationWindow: 300,
-    };
-    try {
-      await db.put(address, JSON.stringify(response));
-    } catch (error) {
-      console.log(`Error creating entry for address ${address}`, error);
-    }
-    return response;
-  }
-
-  async validateSignature(address, signature) {
-    let status = {};
-    try {
-      status = JSON.parse(await db.get(address));
-    } catch (error) {
-      console.log(`Error fetching data for address ${address}`, error);
-    }
-    db.del(address);
-    const { message } = status;
-    const validationWindow = Math.floor(Date.now() / 1000) - JSON.parse(status.requestTimeStamp);
-    if (validationWindow <= 0) {
-      return {
-        error: 'Validation window is closed, please request validation again.',
-      };
-    }
-    const isValid = bitcoinMessage.verify(message, address, signature);
-    return {
-      registerStar: true,
-      status: {
-        ...status,
-        validationWindow,
-        messageSignature: isValid ? 'valid' : 'invalid',
-      },
-    };
   }
 }
 
