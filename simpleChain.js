@@ -92,6 +92,54 @@ class Blockchain {
     }
   }
 
+  // get block by address
+  async getBlocksByAddress(address) {
+    return new Promise((resolve, reject) => {
+      let blocks = [];
+      db.createValueStream().on('data', (data) => {
+        const block = JSON.parse(data);
+        if (address === block.body.address) {
+          blocks.push(block);
+        }
+      }).on('error', (error) => {
+        console.log('Unable to read data stream!', error);
+        reject();
+      }).on('close', () => {
+        if (!blocks.length) {
+          blocks = {
+            error: 'No blocks found for this address',
+            address,
+          };
+        }
+        resolve(blocks);
+      });
+    });
+  }
+
+  // get block by hash
+  async getBlockByHash(hash) {
+    return new Promise((resolve, reject) => {
+      let block = null;
+      db.createValueStream().on('data', (data) => {
+        const thisBlock = JSON.parse(data);
+        if (hash === thisBlock.hash) {
+          block = thisBlock;
+        }
+      }).on('error', (error) => {
+        console.log('Unable to read data stream!', error);
+        reject();
+      }).on('close', () => {
+        if (!block) {
+          block = {
+            error: 'No blocks found with this hash',
+            hash,
+          };
+        }
+        resolve(block);
+      });
+    });
+  }
+
   // validate block
   validateBlock(block) {
     const testBlock = { ...block, hash: '' };

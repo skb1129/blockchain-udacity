@@ -19,17 +19,38 @@ app.get('/block/:blockHeight', async (req, res) => {
   res.json(block);
 });
 
+app.get('/stars/:identifier', async (req, res) => {
+  const { identifier } = req.params;
+  const [key, value] = identifier.split(':');
+  switch (key) {
+    case 'address':
+      await blockchain.getBlocksByAddress(value).then(blocks => res.json(blocks));
+      break;
+
+    case 'hash':
+      await blockchain.getBlockByHash(value).then(block => res.json(block));
+      break;
+
+    default:
+      res.json({
+        error: 'Unknown Identifier',
+        identifier,
+      });
+      break;
+  }
+});
+
 app.post('/block', async (req, res) => {
-  const { address, star } = req.body;
+  const { address } = req.body;
   if (!checkRegisterStar(address)) {
     res.json({
       error: 'This address is not validated',
       address,
     });
+  } else {
+    const block = await blockchain.addBlock(new Block(req.body));
+    res.json(block);
   }
-  const data = { address, star };
-  const block = await blockchain.addBlock(new Block(data));
-  res.json(block);
 });
 
 app.post('/requestValidation', async (req, res) => {
