@@ -9,6 +9,18 @@ const blockchain = new Blockchain();
 
 app.use(bodyParser.json());
 
+app.post('/requestValidation', (req, res) => {
+  const { address } = req.params;
+  const requestTimeStamp = Date.now().toString().slice(0, -3);
+  const response = {
+    address,
+    requestTimeStamp,
+    message: `${address}:${requestTimeStamp}:starRegistry`,
+    validationWindow: 300,
+  };
+  res.json(response);
+});
+
 app.get('/block/:blockHeight', async (req, res) => {
   const block = await blockchain.getBlock(req.params.blockHeight);
   res.json(block);
