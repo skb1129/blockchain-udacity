@@ -5,6 +5,7 @@ const {
   addressValidationRequest,
   validateSignature,
   checkRegisterStar,
+  checkValidStar,
 } = require('./addressValidator');
 const { hexEncode, hexDecode, jsonError } = require('./utils');
 
@@ -57,13 +58,19 @@ app.get('/stars/:identifier', async (req, res) => {
 
 app.post('/block', async (req, res) => {
   const { address, star } = req.body;
-  if (!checkRegisterStar(address)) {
+  const isValidAddress = await checkRegisterStar(address);
+  if (!isValidAddress) {
     res.json(jsonError(400, `This address is not validated: ${address}`));
-  } else {
-    star.story = hexEncode(star.story);
-    const block = await blockchain.addBlock(new Block({ address, star }));
-    res.json(block);
+    return;
   }
+  const validStar = checkValidStar(star);
+  if (validStar) {
+    res.json(validStar);
+    return;
+  }
+  star.story = hexEncode(star.story);
+  const block = await blockchain.addBlock(new Block({ address, star }));
+  res.json(block);
 });
 
 app.post('/requestValidation', async (req, res) => {
