@@ -1,5 +1,6 @@
 const level = require('level');
 const bitcoinMessage = require('bitcoinjs-message');
+const { jsonError } = require('./utils');
 
 const chainDB = './addressData';
 const db = level(chainDB);
@@ -16,6 +17,7 @@ const addressValidationRequest = async (address) => {
     await db.put(address, JSON.stringify(response));
   } catch (error) {
     console.log(`Error creating entry for address ${address}`, error);
+    return jsonError(502, `Unable to connect to database, please try again: ${error}`);
   }
   return response;
 };
@@ -25,7 +27,11 @@ const validateSignature = async (address, signature) => {
   try {
     status = JSON.parse(await db.get(address));
   } catch (error) {
+    if (error.notFound) {
+      return jsonError(404, `Validation request not found for address: ${address}`);
+    }
     console.log(`Error fetching data for address ${address}`, error);
+    return jsonError(502, `Unable to connect to database, please try again: ${error}`);
   }
   const { message } = status;
   const validationWindow = Math.floor(Date.now() / 1000) - JSON.parse(status.requestTimeStamp);
@@ -34,10 +40,9 @@ const validateSignature = async (address, signature) => {
       await db.del(address);
     } catch (error) {
       console.log(`Error deleting entry for address ${address}`, error);
+      return jsonError(502, `Unable to connect to database, please try again: ${error}`);
     }
-    return {
-      error: 'Validation window is closed, please request validation again.',
-    };
+    return jsonError(400, 'Validation window is closed, please request validation again.');
   }
   const isValid = bitcoinMessage.verify(message, address, signature);
   const response = {
@@ -53,6 +58,7 @@ const validateSignature = async (address, signature) => {
       await db.put(address, response);
     } catch (error) {
       console.log(`Error updating entry for address ${address}`, error);
+      return jsonError(502, `Unable to connect to database, please try again: ${error}`);
     }
   }
   return response;

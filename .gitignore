@@ -61,4 +61,5 @@ typings/
 .next
 
 # database
-chaindata/
+chainData/
+addressData/

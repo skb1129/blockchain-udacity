@@ -4,6 +4,7 @@
  */
 const SHA256 = require('crypto-js/sha256');
 const level = require('level');
+const { jsonError } = require('./utils');
 
 const chainDB = './chainData';
 const db = level(chainDB);
@@ -87,15 +88,18 @@ class Blockchain {
       const data = await db.get(blockHeight);
       return JSON.parse(data);
     } catch (error) {
+      if (error.notFound) {
+        return jsonError(404, `Block ${blockHeight} not found.`);
+      }
       console.log('Error getting data from DB', error);
-      return null;
+      return {};
     }
   }
 
   // get block by address
   async getBlocksByAddress(address) {
     return new Promise((resolve, reject) => {
-      let blocks = [];
+      const blocks = [];
       db.createValueStream().on('data', (data) => {
         const block = JSON.parse(data);
         if (address === block.body.address) {
@@ -103,13 +107,10 @@ class Blockchain {
         }
       }).on('error', (error) => {
         console.log('Unable to read data stream!', error);
-        reject();
+        reject(jsonError(502, `Unable to connect to database: ${error}`));
       }).on('close', () => {
         if (!blocks.length) {
-          blocks = {
-            error: 'No blocks found for this address',
-            address,
-          };
+          reject(jsonError(404, `No blocks found for address: ${address}`));
         }
         resolve(blocks);
       });
@@ -127,13 +128,10 @@ class Blockchain {
         }
       }).on('error', (error) => {
         console.log('Unable to read data stream!', error);
-        reject();
+        reject(jsonError(502, `Unable to connect to database: ${error}`));
       }).on('close', () => {
         if (!block) {
-          block = {
-            error: 'No blocks found with this hash',
-            hash,
-          };
+          reject(jsonError(404, `No block found with hash: ${hash}`));
         }
         resolve(block);
       });

@@ -6,7 +6,7 @@ const {
   validateSignature,
   checkRegisterStar,
 } = require('./addressValidator');
-const { hexEncode, hexDecode } = require('./encodeDecode');
+const { hexEncode, hexDecode, jsonError } = require('./utils');
 
 const app = express();
 const port = 8000;
@@ -17,7 +17,9 @@ app.use(bodyParser.json());
 
 app.get('/block/:blockHeight', async (req, res) => {
   const block = await blockchain.getBlock(req.params.blockHeight);
-  block.body.star.storyDecoded = hexDecode(block.body.star.story);
+  if (block.height) {
+    block.body.star.storyDecoded = hexDecode(block.body.star.story);
+  }
   res.json(block);
 });
 
@@ -26,26 +28,29 @@ app.get('/stars/:identifier', async (req, res) => {
   const [key, value] = identifier.split(':');
   switch (key) {
     case 'address':
-      await blockchain.getBlocksByAddress(value).then((blocks) => {
-        blocks.forEach((block) => {
-          block.body.star.storyDecoded = hexDecode(block.body.star.story);
-        });
-        res.json(blocks);
-      });
+      await blockchain.getBlocksByAddress(value)
+        .then((blocks) => {
+          blocks.forEach((block) => {
+            block.body.star.storyDecoded = hexDecode(block.body.star.story);
+          });
+          res.json(blocks);
+        })
+        .catch(error => res.json(error));
       break;
 
     case 'hash':
-      await blockchain.getBlockByHash(value).then((block) => {
-        block.body.star.storyDecoded = hexDecode(block.body.star.story);
-        res.json(block);
-      });
+      await blockchain.getBlockByHash(value)
+        .then((block) => {
+          if (block.height) {
+            block.body.star.storyDecoded = hexDecode(block.body.star.story);
+          }
+          res.json(block);
+        })
+        .catch(error => res.json(error));
       break;
 
     default:
-      res.json({
-        error: 'Unknown Identifier',
-        identifier,
-      });
+      res.json(jsonError(400, `Unknown identifier: ${identifier}`));
       break;
   }
 });
@@ -53,10 +58,7 @@ app.get('/stars/:identifier', async (req, res) => {
 app.post('/block', async (req, res) => {
   const { address, star } = req.body;
   if (!checkRegisterStar(address)) {
-    res.json({
-      error: 'This address is not validated',
-      address,
-    });
+    res.json(jsonError(400, `This address is not validated: ${address}`));
   } else {
     star.story = hexEncode(star.story);
     const block = await blockchain.addBlock(new Block({ address, star }));
