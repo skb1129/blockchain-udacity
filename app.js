@@ -6,6 +6,7 @@ const {
   validateSignature,
   checkRegisterStar,
 } = require('./addressValidator');
+const { hexEncode, hexDecode } = require('./encodeDecode');
 
 const app = express();
 const port = 8000;
@@ -16,6 +17,7 @@ app.use(bodyParser.json());
 
 app.get('/block/:blockHeight', async (req, res) => {
   const block = await blockchain.getBlock(req.params.blockHeight);
+  block.body.star.storyDecoded = hexDecode(block.body.star.story);
   res.json(block);
 });
 
@@ -24,11 +26,19 @@ app.get('/stars/:identifier', async (req, res) => {
   const [key, value] = identifier.split(':');
   switch (key) {
     case 'address':
-      await blockchain.getBlocksByAddress(value).then(blocks => res.json(blocks));
+      await blockchain.getBlocksByAddress(value).then((blocks) => {
+        blocks.forEach((block) => {
+          block.body.star.storyDecoded = hexDecode(block.body.star.story);
+        });
+        res.json(blocks);
+      });
       break;
 
     case 'hash':
-      await blockchain.getBlockByHash(value).then(block => res.json(block));
+      await blockchain.getBlockByHash(value).then((block) => {
+        block.body.star.storyDecoded = hexDecode(block.body.star.story);
+        res.json(block);
+      });
       break;
 
     default:
@@ -41,14 +51,15 @@ app.get('/stars/:identifier', async (req, res) => {
 });
 
 app.post('/block', async (req, res) => {
-  const { address } = req.body;
+  const { address, star } = req.body;
   if (!checkRegisterStar(address)) {
     res.json({
       error: 'This address is not validated',
       address,
     });
   } else {
-    const block = await blockchain.addBlock(new Block(req.body));
+    star.story = hexEncode(star.story);
+    const block = await blockchain.addBlock(new Block({ address, star }));
     res.json(block);
   }
 });
